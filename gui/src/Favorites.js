@@ -21,11 +21,9 @@ import Image from 'material-ui-image';
 import Paper from '@material-ui/core/Paper';
 import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
-import ListItem from '@material-ui/core/ListItem';
-import Divider from '@material-ui/core/Divider';
 
 
-export default class Home extends React.Component
+export default class Favorites extends React.Component
 {
     constructor(props)
     {
@@ -33,38 +31,31 @@ export default class Home extends React.Component
         this.state = {
             favorites: [],
             basket: [],
-            diet: "Vegan",
-            allergies: ["egg", "shellfish"],
             recipes: [],
-            news: [],
         }
-        var stringRequest = 'https://api.spoonacular.com/recipes/complexSearch?';
-        stringRequest = stringRequest.concat("diet=");
-        stringRequest = stringRequest.concat(this.state.diet);
-        stringRequest = stringRequest.concat("&excludeIngredients=");
-        let copyAllergy = this.state.allergies;
-        for(var i=0; i<copyAllergy.length; i++)
+        var stringRequest = 'https://api.spoonacular.com/recipes/informationBulk?ids=';
+        let idlist = this.state.favorites;
+        for(var i=0; i<idlist.length; i++)
         {
-            if(i!=copyAllergy.length-1)
+            if(i!=idlist.length-1)
             {
-                stringRequest = stringRequest.concat(copyAllergy[i],",");
+                stringRequest = stringRequest.concat(idlist[i],",");
             }
             else
             {
-                stringRequest = stringRequest.concat(copyAllergy[i]);
+                stringRequest = stringRequest.concat(idlist[i]);
             }
         }
+        stringRequest = stringRequest.concat("&includeNutrition=true")
         stringRequest = stringRequest.concat("&apiKey=2e0b58c2c8eb4f10be5f5c02491158cb");
-        
 
-        
     }
-
+    
     componentDidMount()
     {
         //https://api.spoonacular.com/recipes/informationBulk?ids=715538,716429&includeNutrition=true&apiKey=2e0b58c2c8eb4f10be5f5c02491158cb use to get recipes in favorites page and in scheduler
         var request = new XMLHttpRequest();
-        request.open('GET', 'https://api.spoonacular.com/recipes/complexSearch?query=pasta&maxFat=25&number=25&addRecipeNutrition=true&apiKey=cfa46d82b3e84e2995601c31d209ae9c', true);
+        request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=654959,654812,654857,654883,654926&includeNutrition=true&apiKey=cfa46d82b3e84e2995601c31d209ae9c', true);
         request.send();
         request.onload = () =>  
         {
@@ -72,11 +63,12 @@ export default class Home extends React.Component
             // Begin accessing JSON data here
             var data = JSON.parse(request.response);
             if (request.status >= 200 && request.status < 400) {
-                var length = Object.keys(data.results).length;
-
+                var length = data.length;
+                console.log(length);
                 for(var i = 0; i < length; i++)
                 {
-                    var result = data.results[i]; 
+                    var result = data[i]; 
+                    console.log(result);
                     var recipe = new Object();
                     recipe.id = result.id;
                     recipe.name = result.title;
@@ -100,7 +92,9 @@ export default class Home extends React.Component
                     if(instr.length > 0)
                     {
                         var steps = result.analyzedInstructions[0].steps;
+                        console.log(steps);
                         var stepLength = steps.length;
+                        console.log(stepLength);
                         var instructions = [];
                         for(var k=0; k <stepLength; k++)
                         {
@@ -115,7 +109,6 @@ export default class Home extends React.Component
                         instructions.push("No instructions available");
                         recipe.instructions = instructions;
                     }
-
                     recipe.picture = result.image;
                     recipe.favorited = this.isFavorited(recipe);
                     recipe.inBasket = this.isInBasket(recipe);
@@ -125,46 +118,6 @@ export default class Home extends React.Component
                 }
             }
         }
-
-        var request2 = new XMLHttpRequest();
-        request2.open('GET', 'https://gnews.io/api/v4/search?q=food&token=6e177d72311c57f9dbf9c307fe5fe8a4', true);
-        request2.send();
-
-        request2.onload = () =>  
-        {
-
-            // Begin accessing JSON data here
-            var data = JSON.parse(request2.response);
-            var articleList = [];
-            if (request2.status >= 200 && request2.status < 400) {
-                var length = Object.keys(data.articles).length;
-                for(var i =0; i<length; i++)
-                {
-                    var article = data.articles[i];
-                    if(!this.isInNews(article, articleList) && articleList.length <= 5)
-                    {
-                        var newsArticle = new Object();
-                        newsArticle.title = article.title;
-                        newsArticle.url = article.url;
-                        newsArticle.description = article.description;
-                        articleList.push(newsArticle);
-                    }
-                }
-                this.setState({news: articleList}, () => console.log(this.state));
-            }
-        }
-    }
-
-    isInNews(article, articleList)
-    {
-        for(var i=0; i<articleList.length; i++)
-        {
-            if(article.title === articleList[i].title)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     isInBasket(recipe)
@@ -323,11 +276,11 @@ export default class Home extends React.Component
             <div>
                 <AppBar position="static">
                     <Toolbar>
-                    <Typography variant="h6">
-                        Home
-                    </Typography>
+                    <Button color = "inherit" onClick = {()=>this.goToPage("home")}>Home</Button>
                     <Button color = "inherit" onClick = {()=>this.goToPage("profile")}>Profile</Button>
-                    <Button color = "inherit" onClick = {()=>this.goToPage("favorites")}>Favorites</Button>
+                    <Typography variant="h6">
+                        Favorites
+                    </Typography>
                     <Button color = "inherit" onClick = {()=>this.goToPage("scheduler")}>Scheduler</Button>
                     </Toolbar>
                 </AppBar>
@@ -397,26 +350,6 @@ export default class Home extends React.Component
                 }
                 </List>
                 </Container>
-                <div>
-                    <Box border = {1} style = {{width: "900px"}}>
-                        <List>
-                            <ListItem>
-                                <h3>Top Stories in Food</h3>
-                            </ListItem>
-                            <Divider/>
-                            {this.state.news.map((article,ind) => {
-                                    return (
-                                        <div key = {ind}>
-                                            <div><a href = {article.url}>{article.title}</a></div>
-                                            <div>{article.description}</div>
-                                            <Divider/>
-                                        </div>
-                                    );
-                                })
-                            }
-                        </List>
-                    </Box>
-                </div>
             </div>
         );
     }

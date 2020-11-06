@@ -1,15 +1,15 @@
 import React from 'react';
+import {useState} from 'react';
 import SignUp from './SignUp';
 import SignIn from './SignIn';
 import Home from './Home';
 import Profile from "./Profile";
-import {useState} from 'react';
+import Scheduler from './Scheduler';
+import Favorites from './Favorites';
 
 function App() {
   let [currentComponent, updateCurrentComponent] = useState("signup");
   let [username, updateUsername] = useState("");
-  let [diet, updateDiet] = useState("");
-  let [allergies, updateAllergies] = useState([]);
   Comp = () => {
     if(currentComponent === "signup")
     {
@@ -29,18 +29,30 @@ function App() {
     {
       return <Home 
           updateCurrentComponent = {updateCurrentComponent} 
-          username = {username} 
-          diet = {diet} 
-          allergies = {allergies}>
+          username = {username} >
           </Home>;
     }
     else if (currentComponent === "profile")
     {
       return <Profile 
-          pdateCurrentComponent = {updateCurrentComponent} 
-          username = {username} updateDiet = {updateDiet} 
-          updateAllergies = {updateAllergies}>
+          updateCurrentComponent = {updateCurrentComponent} 
+          username = {username} >
           </Profile>;
+    }
+    else if (currentComponent === "scheduler")
+    {
+      return <Scheduler
+            updateCurrentComponent = {updateCurrentComponent} 
+            username = {username}>
+            </Scheduler>;
+    }
+    else if (currentComponent === "favorites")
+    {
+      return <Favorites 
+            updateCurrentComponent = {updateCurrentComponent}
+            username = {username}>
+
+            </Favorites>
     }
   };
 
