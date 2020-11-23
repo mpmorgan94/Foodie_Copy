@@ -33,9 +33,9 @@ export default class Profile extends React.Component
             allergies: [],
             restrictionList: ["Gluten Free", "Ketogenic", "Vegetarian", "Vegan", "Pescatarian", "Paleo", "Primal", "Whole30"],
             feet: "1",
-            inches: "0",
-            weight: "0",
-            age: "0",
+            inches: "",
+            weight: "",
+            age: "",
             sex: "m",
             calIntake: 0,
             weightError: false,
@@ -51,7 +51,7 @@ export default class Profile extends React.Component
     {
         //ask server handler for info for restrictions and allergies using this.props.username
         //update state to include user's info
-        //this.retreiveData();
+        this.retreiveData();
 
     }
 
@@ -86,7 +86,7 @@ export default class Profile extends React.Component
         copy.splice(index,1);
         this.setState({allergies: copy}, () => console.log(this.state));
     }
-    
+
     updateWeight(event)
     {
         if(isNaN(event.target.value))
@@ -179,7 +179,7 @@ export default class Profile extends React.Component
             var data = JSON.parse(xhr.response);
             if(xhr.status >= 200 && xhr.status < 400)
             {
-                
+
                 var ideal = data.ideal_weight;
                 var databmi = data.bmi;
                 this.setState({idealWeight: ideal, bmi: databmi, bmiCalculated: true}, ()=> console.log(this.state));
@@ -191,7 +191,7 @@ export default class Profile extends React.Component
     async retreiveData()
     {
         //get the diet, array of allergies, feet for height, inches for height, weight, age, and sex
-        // store them in the state with the call this.setState({diet: serverdiet, allergies: serverallergies, feet: serverfeet, inches: serverinches, age: serverage, sex: serversex}, ()=>console.log(this.state)) 
+        // store them in the state with the call this.setState({diet: serverdiet, allergies: serverallergies, feet: serverfeet, inches: serverinches, age: serverage, sex: serversex}, ()=>console.log(this.state))
         //the console.log will show you the current state in inspect. use that to ensure the data is being loaded correctly.
         //this will be called at the beginning of componentDidMount in final version but can be called using the corresponding button
 
@@ -211,6 +211,60 @@ export default class Profile extends React.Component
             this.setState({allergies: dh});
         }
 
+        //weight
+        dh = "null";
+        dh = await new DatabaseHandler("getWeight", this.props.username);
+        if ((dh != "null") && (dh != "[object Object]") && dh != "0")
+        {
+            console.log(dh);
+            this.setState({weight: dh});
+            console.log(this.state.weight);
+        }
+
+        //feet
+        dh = "null";
+        dh = await new DatabaseHandler("getFeet", this.props.username);
+        if ((dh !== "null") && (dh !== "[object Object]"))
+        {
+            console.log(dh);
+            this.setState({feet: dh});
+            console.log(this.state.feet);
+        }
+
+        //inches
+        dh = "null";
+        dh = await new DatabaseHandler("getInches", this.props.username);
+        if ((dh != "null") && (dh != "[object Object]"))
+        {
+            console.log(dh);
+            this.setState({inches: dh});
+            console.log(this.state.inches);
+        }
+
+        //age
+        dh = "null";
+        dh = await new DatabaseHandler("getAge", this.props.username);
+        if ((dh != "null") && (dh != "[object Object]"))
+        {
+            console.log(dh);
+            this.setState({age: dh});
+            console.log(this.state.age);
+        }
+
+        //sex
+        dh = "null";
+        dh = await new DatabaseHandler("getSex", this.props.username);
+        if ((dh != "null") && (dh != "[object Object]"))
+        {
+            console.log(dh);
+            this.setState({sex: dh});
+            console.log(this.state.sex);
+        }
+
+        console.log(this.state);
+
+
+
         //Set inital BMI data
     }
 
@@ -229,133 +283,197 @@ export default class Profile extends React.Component
         //Send allergies
         dh = false;
         dh = await new DatabaseHandler("saveAllergies", this.props.username, "null", "null", this.state.allergies);
+
+        //send bmi
+        dh = false;
+        console.log("The weight is: " + this.state.weight + " " + this.state.feet + " " + this.state.inches + " " + this.state.age + " " + this.state.sex);
+        dh = await new DatabaseHandler("saveBMI", this.props.username, "null", "null", "null", "null", "null", this.state.weight, this.state.feet, this.state.inches, this.state.age, this.state.sex);
     }
 
-    goToPage(page)
+    async goToPage(page)
     {
         //save state to server here
+        await this.storeData();
         this.props.updateCurrentComponent(page);
     }
 
+
+    useStyles = {
+        bar: {
+            backgroundColor: "#0f0997"
+        },
+        buttons: {
+            
+            backgroundColor: "#0f0997",
+            color: "#fcfcff",
+            width: "140px",
+            borderRadius: "5px",
+            marginTop: "5px",
+            marginBottom: "10px",
+            
+        },
+        dietaryGrid: {
+            marginLeft: "30px",
+        },
+        bmiGrid: {
+            marginTop: "18px",
+            marginLeft: "60px"
+        },
+        bmiInfo: {
+            marginBottom: "5px",
+        },
+        bmiTitles: {
+            fontSize: "25px",
+            fontWeight: "bold",
+            fontFamily: "Helvetica Neue",
+        },
+        bmiResult: {
+            fontSize: "23px"
+        }
+
+    };
+
     render()
     {
+        var classes = this.useStyles;
         return(
             <div>
-                <AppBar position="static">
+                <AppBar position="static" style ={classes.bar}>
                     <Toolbar>
-                    <Button color = "inherit" onClick = {()=>this.goToPage("home")}>Home</Button>
-                    <Typography variant="h6">
+                    <Button style = {classes.butons} color = "inherit" onClick = {()=>this.goToPage("home")}>Home</Button>
+                    <Typography style = {{marginLeft: "5px", marginRight: "7px"}} variant="h6">
                         Profile
                     </Typography>
-                    <Button color = "inherit" onClick = {()=>this.goToPage("favorites")}>Favorites</Button>
-                    <Button color = "inherit" onClick = {()=>this.goToPage("scheduler")}>Scheduler</Button>
+                    <Button style = {classes.butons} color = "inherit" onClick = {()=>this.goToPage("favorites")}>Favorites</Button>
+                    <Button style = {classes.butons} color = "inherit" onClick = {()=>this.goToPage("scheduler")}>Scheduler</Button>
+                    <Grid style = {{width: "90%"}} container justify="flex-end"><Button color = "inherit" onClick = {()=>this.goToPage("signin")}>Sign Out</Button></Grid>
                     </Toolbar>
                 </AppBar>
                 <div>
-                <List>
-                    {this.state.restrictionList.map((res,index) => {
-                        return (
-                            <ListItem 
-                            value = {res} 
-                            key = {index}
-                            >
-                                <ListItemIcon
-                                onClick = {() => this.toggleRestriction(res)}>
-                                    <Checkbox
-                                    checked = {this.state.diet === res}
-                                    />
-                                </ListItemIcon>
-                                <ListItemText id = {index} primary = {res}/>
-                            </ListItem>
-                        );
-                    })
-                    }
-                </List>
-                </div>
-                <div>
-                <List>
-                    {this.state.allergies.map((all,index) => {
-                        return (
-                        <div>
+                    <Grid container style = {classes.grid}>
+                        <Box style = {classes.dietaryGrid}>
+                            <div>
+                                <List>
+                                    <ListItem>
+                                        <h2>Dietary Restriction (Optional)</h2>
+                                    </ListItem>
+                                    {this.state.restrictionList.map((res,index) => {
+                                        return (
+                                            <ListItem
+                                            value = {res}
+                                            key = {index}
+                                            >
+                                                <ListItemIcon
+                                                onClick = {() => this.toggleRestriction(res)}>
+                                                    <Checkbox
+                                                    checked = {this.state.diet === res}
+                                                    />
+                                                </ListItemIcon>
+                                                <ListItemText id = {index} primary = {res}/>
+                                            </ListItem>
+                                        );
+                                    })
+                                    }
+                                </List>
+                            </div>
+                            <div>
+                                <List>
+                                    <ListItem>
+                                        <h3>Allergies</h3>
+                                    </ListItem>
+                                    {this.state.allergies.map((all,index) => {
+                                        return (
+                                        <div>
+                                            <TextField
+                                            value = {all}
+                                            key = {index}
+                                            label = "Allergy"
+                                            onChange = {(e) => this.updateAllergy(e,index)}/>
+                                            <DeleteIcon
+                                            style ={{marginTop: "20px"}}
+                                            onClick = {() => this.deleteAllergy(index)}/>
+                                        </div>
+                                        );
+                                    })
+                                }
+                                </List>
+                            </div>
+                            <Button style = {classes.buttons} onClick = {() => this.addNewAllergy()}>+ Allergy</Button>
+                        </Box>
+                        <Box style = {classes.bmiGrid}>
+                            <div>
+                                <h2>BMI Calculator</h2>
+                            </div>
+                            <div>
                             <TextField
-                            value = {all}
-                            key = {index}
-                            label = "Allergy"
-                            onChange = {(e) => this.updateAllergy(e,index)}/>
-                            <DeleteIcon
-                            onClick = {() => this.deleteAllergy(index)}/>
-                        </div>
-                        );
-                    })
-                }
-                </List>
+                                value = {this.state.weight}
+                                label = "Weight (in lbs)"
+                                error = {this.state.weightError}
+                                onChange = {(e) => this.updateWeight(e)}/>
+                            </div>
+                            <h6>Height</h6>
+                            <div>
+                                <TextField
+                                value = {this.state.feet}
+                                label="Feet"
+                                select
+                                onChange = {(e) => this.updateFeet(e)}
+                                style = {{width: "60px", marginRight: "5px"}}>
+                                    <MenuItem value="1">1</MenuItem>
+                                    <MenuItem value="2">2</MenuItem>
+                                    <MenuItem value="3">3</MenuItem>
+                                    <MenuItem value="4">4</MenuItem>
+                                    <MenuItem value="5">5</MenuItem>
+                                    <MenuItem value="6">6</MenuItem>
+                                    <MenuItem value="7">7</MenuItem>
+                                </TextField>
+                                <TextField
+                                    label = "Inches"
+                                    error = {this.state.inchError}
+                                    onChange = {(e) => this.updateInches(e)}/>
+                            </div>
+                            <div>
+                            <TextField
+                                value = {this.state.age}
+                                label = "Age"
+                                error = {this.state.ageError}
+                                onChange = {(e) => this.updateAge(e)}/>
+                            </div>
+                            <div>
+                                <TextField
+                                label="Sex"
+                                select
+                                value = {this.state.sex}
+                                onChange = {(e) => this.updateSex(e)}
+                                style = {{width: "90px", marginBottom: "15px"}}>
+                                    <MenuItem value="m">Male</MenuItem>
+                                    <MenuItem value="f">Female</MenuItem>
+                                </TextField>
+                            </div>
+                            <div>
+                                <Button style ={classes.buttons} onClick = {() => this.calculateBMI()}>Calculate BMI</Button>
+                            </div>
+                            {this.state.bmiCalculated ?
+                                <div>
+                                    <div style = {classes.bmiInfo}>
+                                        <spam style = {classes.bmiTitles}>BMI: </spam><spam style = {classes.bmiResult}>{this.state.bmi.value}</spam>
+                                    </div>
+                                    <div style = {classes.bmiInfo}>
+                                        <spam style = {classes.bmiTitles}>Status: </spam><spam style = {classes.bmiResult}>{this.state.bmi.status}</spam>
+                                    </div>
+                                    <div style = {classes.bmiInfo}>
+                                        <spam style = {classes.bmiTitles}>Risks: </spam><spam style = {classes.bmiResult}>{this.state.bmi.risk}</spam>
+                                    </div>
+                                    <div style = {classes.bmiInfo}>
+                                        <spam style = {classes.bmiTitles}>Ideal Weight: </spam><spam style = {classes.bmiResult}>{this.state.idealWeight}</spam>
+                                    </div>
+                                </div> :
+                                <div></div>}
+                        </Box>
+                    </Grid>
                 </div>
-                <Button onClick = {() => this.addNewAllergy()}>+ Allergy</Button>
-                <div>
-                    <h3>BMI Calculator</h3>
-                </div>
-                <div>
-                <TextField
-                    label = "Weight (in lbs)"
-                    error = {this.state.weightError}
-                    onChange = {(e) => this.updateWeight(e)}/>
-                </div>
-                <h6>Height</h6>
-                <div>
-                    <TextField
-                    label="Feet" 
-                    select
-                    onChange = {(e) => this.updateFeet(e)}
-                    style = {{width: "60px"}}>
-                        <MenuItem value="1">1</MenuItem>
-                        <MenuItem value="2">2</MenuItem>  
-                        <MenuItem value="3">3</MenuItem>
-                        <MenuItem value="4">4</MenuItem>
-                        <MenuItem value="5">5</MenuItem>
-                        <MenuItem value="6">6</MenuItem>  
-                        <MenuItem value="7">7</MenuItem>        
-                    </TextField>
-                    <TextField
-                        label = "Inches"
-                        error = {this.state.inchError}
-                        onChange = {(e) => this.updateInches(e)}/>
-                </div>
-                <div>
-                <TextField
-                    label = "Age"
-                    error = {this.state.ageError}
-                    onChange = {(e) => this.updateAge(e)}/>
-                </div>
-                <div>
-                    <TextField
-                    label="Sex" 
-                    select
-                    onChange = {(e) => this.updateSex(e)}
-                    style = {{width: "60px"}}>
-                        <MenuItem value="m">Male</MenuItem>
-                        <MenuItem value="f">Female</MenuItem>         
-                    </TextField>
-                </div>
-                <div>
-                    <Button onClick = {() => this.calculateBMI()}>Calculate BMI</Button>
-                </div>
-                {this.state.bmiCalculated ? 
-                    <div>
-                        <div>
-                            BMI: {this.state.bmi.value}
-                        </div>
-                        <div>
-                            Status: {this.state.bmi.status}
-                        </div>
-                        <div>
-                            Risks: {this.state.bmi.risk}
-                        </div>
-                        <div>
-                            Ideal Weight: {this.state.idealWeight}
-                        </div>
-                    </div> : 
-                    <div></div>}
             </div>
+            
         );
     }
 }

@@ -20,6 +20,10 @@ import Card from '@material-ui/core/Card';
 import CloseIcon from '@material-ui/icons/Close';
 import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
+import Menu from "@material-ui/core/Menu";
+import MenuItem from "@material-ui/core/MenuItem";
+import ToggleButton from '@material-ui/lab/ToggleButton';
+import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup';
 
 import DatabaseHandler from './DatabaseHandler.js';
 
@@ -75,48 +79,244 @@ export default class Scheduler extends React.Component
             currentDrag: "",
             currentDay: "",
             currentMeal: "",
-            groceryList: []
+            groceryList: [],
+            scheduleRecipes: [],
+            anchor: null,
+            open: false,
+            anchorDay: "",
+            dayAnchor: null,
+            menuId: "",
+            clickAndDrag: "true",
+            toggleOption: "drag"
         }
     }
-    componentDidMount()
+    async componentDidMount()
     {
-        var request = new XMLHttpRequest();
-        request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=654959,654812,654857,654883,654926,654944,654905,654901,654913,654835&includeNutrition=true&apiKey=cfa46d82b3e84e2995601c31d209ae9c', true);
-        request.send();
-        request.onload = () =>  
+
+        //get basket data from server
+        var basketIdStringsArray = await this.storeBasketIDs();
+        console.log(basketIdStringsArray);
+
+        // build string for recipe api call (basket)
+        // to populate basket
+        var stringOfIds = "";
+        for (var i = 0; i < basketIdStringsArray.length; i++)
         {
+            stringOfIds = stringOfIds + basketIdStringsArray[i];
+            if (i != basketIdStringsArray.length - 1)
+            {
+                stringOfIds = stringOfIds + ",";
+            }
+        }
 
-            // Begin accessing JSON data here
-            var data = JSON.parse(request.response);
-            if (request.status >= 200 && request.status < 400) {
-                var length = Object.keys(data).length;
+        //Retreive schedule
+        let currentSchedule = [];
+        currentSchedule = await DatabaseHandler("getSchedule", this.props.username);
 
-                for(var i = 0; i < length; i++)
-                {
-                    var result = data[i]; 
-                    var recipe = new Object();
-                    recipe.id = result.id.toString();
-                    recipe.name = result.title;
-                    var nutrients = result.nutrition["nutrients"];
-                    var calories = nutrients[0].amount;
-                    var servings = result.servings;
-                    recipe.calories = calories;
-                    recipe.calPerServing = Math.round(recipe.calories/servings);
-                    var ingred = result.nutrition["ingredients"];
-                    var ingredLength = ingred.length;
-                    var ingredList = [];
-                    for(var j=0; j<ingredLength; j++)
+        // build string for recipe api call (schedule)
+        // to populate scheduleRecipe array
+        var stringOfScheduleIds = "";
+        for (var i = 0; i < currentSchedule.length; i++)
+        {
+            console.log(currentSchedule[i]);
+            console.log(currentSchedule[i].charAt(0));
+            console.log(currentSchedule[i].charAt(0).isAlpha);
+            if (/^[A-Z]$/i.test(currentSchedule[i].charAt(0)) == false)
+            {
+                stringOfScheduleIds = stringOfScheduleIds + currentSchedule[i] + ",";
+            }
+        }
+        if (stringOfScheduleIds.charAt(stringOfScheduleIds.length-1) == ",")
+        {
+            stringOfScheduleIds = stringOfScheduleIds.slice(0, -1);
+        }
+        console.log("scheduleIDs =" + stringOfScheduleIds);
+
+        //API keys
+        var stringAPIkey1 = "805e5c6f2aa0430f9339f0c977fe6a5e";
+        var stringAPIkey2 = "776009e261104b10864e8a11347a4478";
+        var stringAPIkey3 = "2e0b58c2c8eb4f10be5f5c02491158cb";
+        var currentAPIkey = stringAPIkey2;
+
+        console.log("stringOfIds= " + stringOfIds + "   stringOfscheduleIDs= " + stringOfScheduleIds);
+        if (stringOfIds != "" && stringOfScheduleIds == "")
+        {
+            var request = new XMLHttpRequest();
+            request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=' + stringOfIds + '&includeNutrition=true&apiKey=' + currentAPIkey, true);
+            request.send();
+            request.onload = () =>  
+            {
+
+                console.log("in request");
+                // Begin accessing JSON data here
+                var data = JSON.parse(request.response);
+                if (request.status >= 200 && request.status < 400) {
+                    var length = Object.keys(data).length;
+
+                    for(var i = 0; i < length; i++)
                     {
-                        var ingredient = new Object();
-                        ingredient.name = ingred[j].name;
-                        ingredient.amount = ingred[j].amount;
-                        ingredient.unit = ingred[j].unit;
-                        ingredList.push(ingredient);
+                        var result = data[i]; 
+                        var recipe = new Object();
+                        recipe.id = result.id.toString();
+                        recipe.name = result.title;
+                        var nutrients = result.nutrition["nutrients"];
+                        var calories = nutrients[0].amount;
+                        var servings = result.servings;
+                        recipe.calories = calories;
+                        recipe.calPerServing = Math.round(recipe.calories/servings);
+                        var ingred = result.nutrition["ingredients"];
+                        var ingredLength = ingred.length;
+                        var ingredList = [];
+                        for(var j=0; j<ingredLength; j++)
+                        {
+                            var ingredient = new Object();
+                            ingredient.name = ingred[j].name;
+                            ingredient.amount = ingred[j].amount;
+                            ingredient.unit = ingred[j].unit;
+                            ingredList.push(ingredient);
+                        }
+                        recipe.ingredients = ingredList;
+                        var copy = this.state.basket;
+                        copy.push(recipe);
+                        this.setState({basket: copy}, () => console.log(this.state));
                     }
-                    recipe.ingredients = ingredList;
-                    var copy = this.state.basket;
-                    copy.push(recipe);
-                    this.setState({basket: copy}, () => console.log(this.state));
+                    this.retreiveData();
+                }
+            }
+        }
+
+        if (stringOfIds == "" && stringOfScheduleIds != "")
+        {
+            request = new XMLHttpRequest();
+            request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=' + stringOfScheduleIds + '&includeNutrition=true&apiKey=' + currentAPIkey, true);
+            request.send();
+            request.onload = () =>  
+            {
+
+                console.log("in request");
+                // Begin accessing JSON data here
+                let data = JSON.parse(request.response);
+                if (request.status >= 200 && request.status < 400) {
+                    var length = Object.keys(data).length;
+
+                    for(var i = 0; i < length; i++)
+                    {
+                        var result = data[i]; 
+                        var recipe = new Object();
+                        recipe.id = result.id.toString();
+                        recipe.name = result.title;
+                        var nutrients = result.nutrition["nutrients"];
+                        var calories = nutrients[0].amount;
+                        var servings = result.servings;
+                        recipe.calories = calories;
+                        recipe.calPerServing = Math.round(recipe.calories/servings);
+                        var ingred = result.nutrition["ingredients"];
+                        var ingredLength = ingred.length;
+                        var ingredList = [];
+                        for(var j=0; j<ingredLength; j++)
+                        {
+                            var ingredient = new Object();
+                            ingredient.name = ingred[j].name;
+                            ingredient.amount = ingred[j].amount;
+                            ingredient.unit = ingred[j].unit;
+                            ingredList.push(ingredient);
+                        }
+                        recipe.ingredients = ingredList;
+                        var copy = this.state.scheduleRecipes;
+                        copy.push(recipe);
+                        this.setState({scheduleRecipes: copy}, () => console.log(this.state));
+                    }
+                    // After http request to fill basket, populate the schedule
+                    this.retreiveData();
+                }
+            }
+        }
+
+        if (stringOfIds != "" && stringOfScheduleIds != "")
+        {
+            var request = new XMLHttpRequest();
+            request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=' + stringOfIds + '&includeNutrition=true&apiKey=' + currentAPIkey, true);
+            request.send();
+            request.onload = () =>  
+            {
+
+                console.log("in request");
+                // Begin accessing JSON data here
+                var data = JSON.parse(request.response);
+                if (request.status >= 200 && request.status < 400) {
+                    var length = Object.keys(data).length;
+
+                    for(var i = 0; i < length; i++)
+                    {
+                        var result = data[i]; 
+                        var recipe = new Object();
+                        recipe.id = result.id.toString();
+                        recipe.name = result.title;
+                        var nutrients = result.nutrition["nutrients"];
+                        var calories = nutrients[0].amount;
+                        var servings = result.servings;
+                        recipe.calories = calories;
+                        recipe.calPerServing = Math.round(recipe.calories/servings);
+                        var ingred = result.nutrition["ingredients"];
+                        var ingredLength = ingred.length;
+                        var ingredList = [];
+                        for(var j=0; j<ingredLength; j++)
+                        {
+                            var ingredient = new Object();
+                            ingredient.name = ingred[j].name;
+                            ingredient.amount = ingred[j].amount;
+                            ingredient.unit = ingred[j].unit;
+                            ingredList.push(ingredient);
+                        }
+                        recipe.ingredients = ingredList;
+                        var copy = this.state.basket;
+                        copy.push(recipe);
+                        this.setState({basket: copy}, () => console.log(this.state));
+                    }
+                    
+                    request = new XMLHttpRequest();
+                    request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=' + stringOfScheduleIds + '&includeNutrition=true&apiKey=' + currentAPIkey, true);
+                    request.send();
+                    request.onload = () =>  
+                    {
+
+                        console.log("in request");
+                        // Begin accessing JSON data here
+                        data = JSON.parse(request.response);
+                        if (request.status >= 200 && request.status < 400) {
+                            var length = Object.keys(data).length;
+
+                            for(var i = 0; i < length; i++)
+                            {
+                                var result = data[i]; 
+                                var recipe = new Object();
+                                recipe.id = result.id.toString();
+                                recipe.name = result.title;
+                                var nutrients = result.nutrition["nutrients"];
+                                var calories = nutrients[0].amount;
+                                var servings = result.servings;
+                                recipe.calories = calories;
+                                recipe.calPerServing = Math.round(recipe.calories/servings);
+                                var ingred = result.nutrition["ingredients"];
+                                var ingredLength = ingred.length;
+                                var ingredList = [];
+                                for(var j=0; j<ingredLength; j++)
+                                {
+                                    var ingredient = new Object();
+                                    ingredient.name = ingred[j].name;
+                                    ingredient.amount = ingred[j].amount;
+                                    ingredient.unit = ingred[j].unit;
+                                    ingredList.push(ingredient);
+                                }
+                                recipe.ingredients = ingredList;
+                                var copy = this.state.scheduleRecipes;
+                                copy.push(recipe);
+                                this.setState({scheduleRecipes: copy}, () => console.log(this.state));
+                            }
+                            // After http request to fill basket, populate the schedule
+                            this.retreiveData();
+                        }
+                    }
                 }
             }
         }
@@ -232,9 +432,17 @@ export default class Scheduler extends React.Component
         for (var i=0; i<this.state.basket.length; i++)
         {
             var recipe = this.state.basket[i];
-            if (recipe.id === id)
+            if (recipe.id.toString() === id.toString())
             {
-                return recipe;
+                return recipe
+            }
+        }
+        for (var i=0; i<this.state.scheduleRecipes.length; i++)
+        {
+            var recipe = this.state.scheduleRecipes[i];
+            if (recipe.id.toString() === id.toString())
+            {
+                return recipe
             }
         }
         return null;
@@ -643,7 +851,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({monday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -651,7 +859,7 @@ export default class Scheduler extends React.Component
         }
         else if(this.state.currentDay == "tuesday")
         {
-            var copy = this.state.monday;
+            var copy = this.state.tuesday;
             if(this.state.currentMeal === "breakfast")
             {
                 copy.breakfast = "Breakfast";
@@ -669,7 +877,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({tuesday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -695,7 +903,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({wednesday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -721,7 +929,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({thursday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -747,7 +955,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({friday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -773,7 +981,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({saturday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -798,7 +1006,7 @@ export default class Scheduler extends React.Component
             }
             else if(this.state.currentMeal === "dinner")
             {
-                copy.dinner = "Dinner;"
+                copy.dinner = "Dinner";
 
             }
             this.setState({sunday: copy, currentDay: "", currentMeal: "" }, () => console.log(this.state));
@@ -994,9 +1202,13 @@ export default class Scheduler extends React.Component
         return -1;
     }
 
-    generateGroceryList()
+    async generateGroceryList()
     {
-        var copy = [];
+        this.setState({groceryList: []}, ()=>console.log(this.state));
+        const copy = this.state.groceryList;
+        await copy.splice(0,copy.length);
+        console.log("copy");
+        console.log(copy.length);
         if(this.state.monday.breakfast != "Breakfast")
         {
             var recipe = this.findRecipe(this.state.monday.breakfast);
@@ -1038,7 +1250,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1055,7 +1267,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1072,7 +1284,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1089,7 +1301,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1107,7 +1319,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1124,7 +1336,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1141,7 +1353,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1176,7 +1388,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1193,7 +1405,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1210,7 +1422,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1227,7 +1439,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1245,7 +1457,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1262,7 +1474,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1279,7 +1491,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1296,7 +1508,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1314,7 +1526,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1331,7 +1543,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1348,7 +1560,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1365,7 +1577,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1383,7 +1595,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1400,7 +1612,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1417,7 +1629,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1434,7 +1646,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1452,7 +1664,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1469,7 +1681,7 @@ export default class Scheduler extends React.Component
             var ingredients = recipe.ingredients;
             for (var i = 0; i < ingredients.length; i++)
             {
-                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, copy);
+                var index = this.findIngredient(ingredients[i].name, ingredients[i].unit, this.state.groceryList);
                 if (index == -1)
                 {
                     copy.push(ingredients[i]);
@@ -1480,7 +1692,47 @@ export default class Scheduler extends React.Component
                 }
             }
         }
+        console.log(copy);
         this.setState({groceryList: copy}, () => console.log(this.state));
+        //copy.splice(0,copy.length);
+    }
+
+    async storeBasketIDs()
+    {
+
+        //Populate basket
+        // get recipies string
+        let dh = "null";
+        dh = await new DatabaseHandler("getRecipes", this.props.username);
+        var basket_recipes_string = "";
+        var basket_recipes_array = [];
+
+        if (dh != "null")
+        {
+            if (dh != null && dh.length != 0 && dh != "null")
+            {
+                basket_recipes_string = dh.split('*')[0];
+            }
+
+            // debugging
+            //console.log("dh returned:" + dh);
+            //console.log("basket_recipes_string=" + basket_recipes_string);
+
+            if (dh.split('*').length > 1 && basket_recipes_string.length != 0)
+            {
+                basket_recipes_array = basket_recipes_string.split(',');
+            }
+        }
+        if (dh.split('*').length > 1 && basket_recipes_array.length != 0)
+        {
+            //this.fixScheduleToBasket(basket_recipes_array);
+            return basket_recipes_array;
+        }
+        else
+        {
+            //this.fixScheduleToBasket([]);
+            return [];
+        }
     }
 
     async retreiveData()
@@ -1578,54 +1830,457 @@ export default class Scheduler extends React.Component
     goToPage(page)
     {
         //save state to server here
+        this.storeData();
         this.props.updateCurrentComponent(page);
     }
 
+    async clearBasketAndSchedule()
+    {
+        var day = {
+            breakfast: "Breakfast",
+            snack: "Snack",
+            lunch: "Lunch",
+            dinner: "Dinner"
+        };
+        var empty = [];
+        this.setState({monday: day, tuesday: day, wednesday: day, thursday: day, friday: day, saturday: day, sunday: day, basket: empty, scheduleRecipes: empty}, ()=>console.log(this.state));
+
+        // make the recipe_id_string
+        // "id,id,id,id,id,id,id,id*id,id,id,id,id,id,id"
+        // ......basket_ids........^.....favorite_ids....
+        // if empty string will be = "*"
+        var recipe_id_string = "*";
+        var i;
+        for (i = 0; i < this.state.basket.length; i++) {
+            recipe_id_string = recipe_id_string + this.state.basket[i] + ",";
+        }
+        if (recipe_id_string.charAt(recipe_id_string.length - 1) == ",")
+        {
+            recipe_id_string = recipe_id_string.slice(0, -1);
+        }
+        console.log("recipe_id_string in scheduler right before saving = " + recipe_id_string);
+
+        let dh = false;
+        dh = await new DatabaseHandler("saveRecipes", this.props.username, "null", "null", "null", recipe_id_string, "null");
+
+    }
+
+
+    openMenu(event, name, id)
+    {
+        if(this.state.clickAndDrag === "false")
+        {
+            if(name === "recipe")
+            {
+                this.setState({anchor: event.currentTarget, open: true, menuId: id}, ()=> console.log(this.state));
+            }
+        else
+            {
+                this.setState({dayAnchor: event.currentTarget, anchorDay: name }, ()=>console.log(this.state));
+            }
+        }
+    }
+
+    closeMenu()
+    {
+        this.setState({anchor: null, open: false, anchorDay: ""}, ()=>console.log(this.state));
+    }
+    
+    addRecipe(day, meal)
+    {
+        if(this.state.clickAndDrag === "false")
+        {
+            if(day === "monday")
+            {
+                var copy = this.state.monday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                    console.log("setting new breakfast");
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({monday: copy}, ()=>console.log(this.state));
+            }
+            else if(day === "tuesday")
+            {
+                var copy = this.state.tuesday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({tuesday: copy}, ()=>console.log(this.state));
+            }
+            else if(day === "wednesday")
+            {
+                var copy = this.state.wednesday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({wednesday: copy}, ()=>console.log(this.state));
+            }
+            else if(day === "thursday")
+            {
+                var copy = this.state.thursday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({thursday: copy}, ()=>console.log(this.state));
+            }
+            else if(day === "friday")
+            {
+                var copy = this.state.friday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({friday: copy}, ()=>console.log(this.state));
+            }
+            else if(day === "saturday")
+            {
+                var copy = this.state.saturday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({saturday: copy}, ()=>console.log(this.state));
+            }
+            else if(day === "sunday")
+            {
+                var copy = this.state.sunday;
+                if(meal === "breakfast")
+                {
+                    copy.breakfast = this.state.menuId;
+                }
+                else if (meal === "snack")
+                {
+                    copy.snack = this.state.menuId;
+                }            
+                else if(meal === "lunch")
+                {
+                    copy.lunch = this.state.menuId;
+                }
+                else if (meal === "dinner")
+                {
+                    copy.dinner = this.state.menuId;
+                }
+                this.setState({sunday: copy}, ()=>console.log(this.state));
+            }
+            this.closeMenu();
+        }
+
+    }
+    
+    changeToggle()
+    {
+        if(this.state.toggleOption === "drag")
+        {
+            this.setState({toggleOption: "click", clickAndDrag: "false"}, ()=>console.log(this.state));
+        }
+        else
+        {
+            this.setState({toggleOption: "drag", clickAndDrag: "true", anchor: null, open: false, anchorDay: "", dayAnchor: null, menuId: ""}, ()=>console.log(this.state))
+        }
+    }
+
+    useStyles = {
+        bar: {
+            backgroundColor: "#0f0997"
+        },
+        buttons: {
+            backgroundColor: "#0f0997",
+            color: "#fcfcff",
+            width: "140px",
+            borderRadius: "5px",
+            marginTop: "30px",
+            marginBottom: "10px",
+            marginLeft: "45px",
+            
+        },
+        headers: {
+            backgroundColor: "#0f0997",
+            color: "#fcfcff",
+            marginTop: "-8px",
+            textAlign: "center",
+        },
+        card:{
+            width: "180px",
+            height: "60px",
+            fontSize: "11px",
+            backgroundColor: "#d6dafc",
+            variant: "outlined",
+        },
+        close:{
+            marginLeft: "160px",
+        },
+        basket: {
+            width: "200px",
+            height: "414px",
+            overflowY: "scroll",
+            marginLeft: "15px",
+            marginRight: "50x",
+        },
+        recipe: {
+            height: "45px",
+            fontSize: "14px",
+        },
+        blankSlot: {
+            width: "180px",
+            height: "60px",
+            fontSize: "20px",
+            textAlign: "center",
+            color: "#6b6c6c",
+        },
+        schedule: {
+            marginLeft: "40px",
+        },
+        indRecipe: {
+            backgroundColor: "#d6dafc",
+        },
+        toggleGroup: {
+            marginLeft: "15px",
+            marginTop: "30px",
+            marginBottom: "30px",
+        },
+        toggled: {
+            backgroundColor: "#0f0997",
+            color: "#fcfcff",
+        },
+        notToggled: {
+            color: "#020117",
+            backgroundColor: "#d6dafc",
+        },
+        groceryList: {
+            marginLeft: "15px"
+        },
+        instruction: {
+            marginLeft: "10px"
+        }
+
+    };
+
     render()
     {
+        var classes = this.useStyles;
         return(
             <div>
-                <AppBar position="static">
+                <AppBar position="static" style = {classes.bar}>
                     <Toolbar>
                     <Button color = "inherit" onClick = {()=>this.goToPage("home")}>Home</Button>
                     <Button color = "inherit" onClick = {()=>this.goToPage("profile")}>Profile</Button>
                     <Button color = "inherit" onClick = {()=>this.goToPage("favorites")}>Favorites</Button>
-                    
-                    <Typography variant="h6">
+                    <Typography style = {{marginLeft: "5px", marginRight: "7px"}} variant="h6">
                         Scheduler
                     </Typography>
+                    <Grid style = {{width: "90%", height: "30px"}} container justify="flex-end"><Button color = "inherit" onClick = {()=>this.goToPage("signin")}>Sign Out</Button></Grid>
                     </Toolbar>
                 </AppBar>
                 <div>
-                    <Grid container>
-                        <Box border = {1}>
+                    <ToggleButtonGroup style = {classes.toggleGroup} value={this.state.toggleOption} exclusive onChange={()=>this.changeToggle()}>
+                        <ToggleButton style = {this.state.toggleOption === "drag" ? classes.toggled : classes.notToggled} value="drag" >
+                            <div>Drag</div>
+                        </ToggleButton>
+                        <ToggleButton style = {this.state.toggleOption !== "drag" ? classes.toggled : classes.notToggled} value="click">
+                            <div>Click</div>
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                    {this.state.toggleOption==="drag"? <spam style  ={classes.instruction}>Click and Drag Recipes from the Basket into the Meal Slots to Build Your Weekly Schedule</spam> : <spam style = {classes.instruction}>Click on a Recipe and Select the Day and Meal Option to Build Your Weekly Schedule</spam>}
+                    <Grid container> 
+                        <Box border = {1} style = {classes.basket}>
                             <List>
-                                <ListItem>
-                                    <ListItemText>Basket</ListItemText>
+                                <ListItem style = {classes.headers}>
+                                    <ListItemText >Basket</ListItemText>
                                 </ListItem>
                                 {this.state.basket.map((recipe,index) => {
                                     return (
                                         <div 
+                                            style = {classes.indRecipe}
                                             id = {recipe.id}
-                                            draggable = "true"
-                                            onDragStart = {e => this.onDrag(e)}>
+                                            draggable = {this.state.clickAndDrag}
+                                            onDragStart = {e => this.onDrag(e)}
+                                            >
+                                        <Divider/>
                                         <ListItem
-                                        key = {index}>
-                                            <ListItemText id = {index} primary = {recipe.name}/>
+                                        key = {index}
+                                        onClick = {e => this.openMenu(e, "recipe", recipe.id)}>
+                                            <div style = {classes.recipe}>{recipe.name}</div>
                                         </ListItem>
+                                        <Menu
+                                        anchorEl = {this.state.anchor}
+                                        keepMounted
+                                        open={this.state.open}
+                                        onClose={()=>this.closeMenu()}>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"monday", "")}>Monday</MenuItem>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"tuesday", "")}>Tuesday</MenuItem>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"wednesday", "")}>Wednesday</MenuItem>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"thursday", "")}>Thursday</MenuItem>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"friday", "")}>Friday</MenuItem>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"saturday", "")}>Saturday</MenuItem>
+                                            <MenuItem onClick = {e =>this.openMenu(e,"sunday", "")}>Sunday</MenuItem>
+
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="monday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe( "monday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("monday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("monday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("monday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="tuesday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe("tuesday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("tuesday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("tuesday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("tuesday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="wednesday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe("wednesday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("wednesday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("wednesday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("wednesday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="thursday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe("thursday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("thursday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("thursday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("thursday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="friday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe( "friday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("friday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("friday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("friday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="saturday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe("saturday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("saturday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("saturday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("saturday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
+                                        <Menu
+                                            anchorEl = {this.state.dayAnchor}
+                                            keepMounted
+                                            open={this.state.anchorDay==="sunday"}
+                                            style = {{marginLeft: "114px"}}
+                                            onClose={()=>this.closeMenu()}>
+                                                <MenuItem onClick = {()=>this.addRecipe("sunday", "breakfast")}>Breakfast</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("sunday", "snack")}>Snack</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("sunday", "lunch")}>Lunch</MenuItem>
+                                                <MenuItem onClick = {()=>this.addRecipe("sunday", "dinner")}>Dinner</MenuItem>
+                                        </Menu>
                                         </div>
                                         );
                                 })
                                 }
-                                <Divider/>
+                                
                             </List>
                         </Box>
                         <div>
                         <Grid container>
-                                <Box border = {1}>
+                                <Box border = {1} style = {classes.schedule}>
                                 <List>
-                                    <ListItem>
-                                        <ListItemText>Monday</ListItemText>
+                                    <ListItem style = {classes.headers} >
+                                        <ListItemText >Monday</ListItemText>
                                     </ListItem>
                                     <Divider/>
                                     <div 
@@ -1635,11 +2290,11 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "mondaybreakfast")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.monday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.monday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.monday.breakfast != "Breakfast" ? 
                                                 <div> 
+                                                    <CloseIcon style = {classes.close} fontSize = "small"  onClick = {()=> this.resetSlot("monday", "breakfast")}></CloseIcon>
                                                     {this.findRecipe(this.state.monday.breakfast).name} ({this.findRecipe(this.state.monday.breakfast).calPerServing})
-                                                    <CloseIcon fontSize = "small"  onClick = {()=> this.resetSlot("monday", "breakfast")}></CloseIcon>
                                                 </div> : 
                                                 this.state.monday.breakfast}
                                             </Card>
@@ -1653,11 +2308,11 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "mondaysnack")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.monday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.monday.snack != "Snack" ? true : false }>
                                             {this.state.monday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.monday.snack).name} ({this.findRecipe(this.state.monday.snack).calPerServing})
-                                                    <CloseIcon fontSize = "small"  onClick = {()=> this.resetSlot("monday", "snack")}></CloseIcon>
+                                                    <CloseIcon fontSize = "4px"  onClick = {()=> this.resetSlot("monday", "snack")}></CloseIcon>
                                                 </div> : 
                                                 this.state.monday.snack}
                                             </Card>
@@ -1671,7 +2326,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "mondaylunch")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.monday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.monday.lunch != "Lunch" ? true : false }>
                                             {this.state.monday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.monday.lunch).name} ({this.findRecipe(this.state.monday.lunch).calPerServing})
@@ -1689,7 +2344,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "mondaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.monday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.monday.dinner != "Dinner" ? true : false }>
                                             {this.state.monday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.monday.dinner).name} ({this.findRecipe(this.state.monday.dinner).calPerServing})
@@ -1709,8 +2364,8 @@ export default class Scheduler extends React.Component
                                 </Box>
                                 <Box border = {1}>
                                 <List>
-                                    <ListItem>
-                                        <ListItemText>Tuesday</ListItemText>
+                                    <ListItem style = {classes.headers}>
+                                        <ListItemText >Tuesday</ListItemText>
                                     </ListItem>
                                     <Divider/>
                                     <div 
@@ -1720,7 +2375,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "tuesdaybreakfast")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.tuesday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.tuesday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.tuesday.breakfast != "Breakfast" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.tuesday.breakfast).name} ({this.findRecipe(this.state.tuesday.breakfast).calPerServing})
@@ -1738,7 +2393,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "tuesdaysnack")}>
                                         <ListItem>
-                                        <Card variant = "outlined">
+                                        <Card style = {this.state.tuesday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.tuesday.snack != "Snack" ? true : false }>
                                             {this.state.tuesday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.tuesday.snack).name} ({this.findRecipe(this.state.tuesday.snack).calPerServing})
@@ -1756,7 +2411,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "tuesdaylunch")}>
                                         <ListItem>
-                                        <Card variant = "outlined">
+                                        <Card style = {this.state.tuesday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.tuesday.lunch != "Lunch" ? true : false }>
                                             {this.state.tuesday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.tuesday.lunch).name} ({this.findRecipe(this.state.tuesday.lunch).calPerServing})
@@ -1774,7 +2429,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "tuesdaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.tuesday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.tuesday.dinner != "Dinner" ? true : false }>
                                             {this.state.tuesday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.tuesday.dinner).name} ({this.findRecipe(this.state.tuesday.dinner).calPerServing})
@@ -1794,8 +2449,8 @@ export default class Scheduler extends React.Component
                                 </Box>
                                 <Box border = {1}>
                                 <List>
-                                    <ListItem>
-                                        <ListItemText>Wednesday</ListItemText>
+                                    <ListItem style = {classes.headers}>
+                                        <ListItemText >Wednesday</ListItemText>
                                     </ListItem>
                                     <Divider/>
                                     <div 
@@ -1805,7 +2460,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "wednesdaybreakfast")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.wednesday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.wednesday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.wednesday.breakfast != "Breakfast" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.wednesday.breakfast).name} ({this.findRecipe(this.state.wednesday.breakfast).calPerServing})
@@ -1823,7 +2478,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "wednesdaysnack")}>
                                         <ListItem>
-                                        <Card variant = "outlined">
+                                        <Card style = {this.state.wednesday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.wednesday.snack != "Snack" ? true : false }>
                                             {this.state.wednesday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.wednesday.snack).name} ({this.findRecipe(this.state.wednesday.snack).calPerServing})
@@ -1841,7 +2496,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "wednesdaylunch")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.wednesday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.wednesday.lunch != "Lunch" ? true : false }>
                                             {this.state.wednesday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.wednesday.lunch).name} ({this.findRecipe(this.state.wednesday.lunch).calPerServing})
@@ -1859,7 +2514,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "wednesdaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.wednesday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.wednesday.dinner != "Dinner" ? true : false }>
                                             {this.state.wednesday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.wednesday.dinner).name} ({this.findRecipe(this.state.wednesday.dinner).calPerServing})
@@ -1879,7 +2534,7 @@ export default class Scheduler extends React.Component
                                 </Box>
                                 <Box border = {1}>
                                 <List>
-                                    <ListItem>
+                                    <ListItem style = {classes.headers}>
                                         <ListItemText>Thursday</ListItemText>
                                     </ListItem>
                                     <Divider/>
@@ -1890,7 +2545,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "thursdaybreakfast")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.thursday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.thursday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.thursday.breakfast != "Breakfast" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.thursday.breakfast).name} ({this.findRecipe(this.state.thursday.breakfast).calPerServing})
@@ -1908,7 +2563,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "thursdaysnack")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.thursday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.thursday.snack != "Snack" ? true : false }>
                                             {this.state.thursday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.thursday.snack).name} ({this.findRecipe(this.state.thursday.snack).calPerServing})
@@ -1926,7 +2581,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "thursdaylunch")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.thursday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.thursday.lunch != "Lunch" ? true : false }>
                                             {this.state.thursday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.thursday.lunch).name} ({this.findRecipe(this.state.thursday.lunch).calPerServing})
@@ -1944,7 +2599,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "thursdaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.thursday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.thursday.dinner != "Dinner" ? true : false }>
                                             {this.state.thursday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.thursday.dinner).name} ({this.findRecipe(this.state.thursday.dinner).calPerServing})
@@ -1964,8 +2619,8 @@ export default class Scheduler extends React.Component
                                 </Box>
                                 <Box border = {1}>
                                 <List>
-                                    <ListItem>
-                                        <ListItemText>Friday</ListItemText>
+                                    <ListItem style = {classes.headers}>
+                                        <ListItemText >Friday</ListItemText>
                                     </ListItem>
                                     <Divider/>
                                     <div 
@@ -1975,7 +2630,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "fridaybreakfast")}>
                                         <ListItem>
-                                        <   Card variant = "outlined">
+                                        <   Card style = {this.state.friday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.friday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.friday.breakfast != "Breakfast" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.friday.breakfast).name} ({this.findRecipe(this.state.friday.breakfast).calPerServing})
@@ -1993,7 +2648,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "fridaysnack")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.friday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.friday.snack != "Snack" ? true : false }>
                                             {this.state.friday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.friday.snack).name} ({this.findRecipe(this.state.friday.snack).calPerServing})
@@ -2011,7 +2666,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "fridaylunch")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.friday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.friday.lunch != "Lunch" ? true : false }>
                                             {this.state.friday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.friday.lunch).name} ({this.findRecipe(this.state.friday.lunch).calPerServing})
@@ -2029,7 +2684,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "fridaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.friday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.friday.dinner != "Dinner" ? true : false }>
                                             {this.state.friday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.friday.dinner).name} ({this.findRecipe(this.state.friday.dinner).calPerServing})
@@ -2049,7 +2704,7 @@ export default class Scheduler extends React.Component
                                 </Box>
                                 <Box border = {1}>
                                 <List>
-                                    <ListItem>
+                                    <ListItem style = {classes.headers}>
                                         <ListItemText>Saturday</ListItemText>
                                     </ListItem>
                                     <Divider/>
@@ -2060,7 +2715,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "saturdaybreakfast")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.saturday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.saturday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.saturday.breakfast != "Breakfast" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.saturday.breakfast).name} ({this.findRecipe(this.state.saturday.breakfast).calPerServing})
@@ -2078,7 +2733,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "saturdaysnack")}>
                                         <ListItem>
-                                        <Card variant = "outlined">
+                                        <Card style = {this.state.saturday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.saturday.snack != "Snack" ? true : false }>
                                             {this.state.saturday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.saturday.snack).name} ({this.findRecipe(this.state.saturday.snack).calPerServing})
@@ -2096,7 +2751,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "saturdaylunch")}>
                                         <ListItem>
-                                        <Card variant = "outlined">
+                                        <Card style = {this.state.saturday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.saturday.lunch != "Lunch" ? true : false }>
                                             {this.state.saturday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.saturday.lunch).name} ({this.findRecipe(this.state.saturday.lunch).calPerServing})
@@ -2114,7 +2769,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "saturdaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.saturday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.saturday.dinner != "Dinner" ? true : false }>
                                             {this.state.saturday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.saturday.dinner).name} ({this.findRecipe(this.state.saturday.dinner).calPerServing})
@@ -2134,7 +2789,7 @@ export default class Scheduler extends React.Component
                                 </Box>
                                 <Box border = {1}>
                                 <List>
-                                    <ListItem>
+                                    <ListItem style = {classes.headers}>
                                         <ListItemText>Sunday</ListItemText>
                                     </ListItem>
                                     <Divider/>
@@ -2145,7 +2800,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "sundaybreakfast")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.sunday.breakfast != "Breakfast" ? classes.card : classes.blankSlot} raised = {this.state.sunday.breakfast != "Breakfast" ? true : false }>
                                             {this.state.sunday.breakfast != "Breakfast" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.sunday.breakfast).name} ({this.findRecipe(this.state.sunday.breakfast).calPerServing})
@@ -2163,7 +2818,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "sundaysnack")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.sunday.snack != "Snack" ? classes.card : classes.blankSlot} raised = {this.state.sunday.snack != "Snack" ? true : false }>
                                             {this.state.sunday.snack != "Snack" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.sunday.snack).name} ({this.findRecipe(this.state.sunday.snack).calPerServing})
@@ -2181,7 +2836,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "sundaylunch")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.sunday.lunch != "Lunch" ? classes.card : classes.blankSlot} raised = {this.state.sunday.lunch != "Lunch" ? true : false }>
                                             {this.state.sunday.lunch != "Lunch" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.sunday.lunch).name} ({this.findRecipe(this.state.sunday.lunch).calPerServing})
@@ -2199,7 +2854,7 @@ export default class Scheduler extends React.Component
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop= {(e) => this.onDrop(e, "sundaydinner")}>
                                         <ListItem>
-                                            <Card variant = "outlined">
+                                            <Card style = {this.state.sunday.dinner != "Dinner" ? classes.card : classes.blankSlot} raised = {this.state.sunday.dinner != "Dinner" ? true : false }>
                                             {this.state.sunday.dinner != "Dinner" ? 
                                                 <div> 
                                                     {this.findRecipe(this.state.sunday.dinner).name} ({this.findRecipe(this.state.sunday.dinner).calPerServing})
@@ -2222,14 +2877,17 @@ export default class Scheduler extends React.Component
                     </Grid>
                 </div>
                 <div>
-                    <Button onClick = {() => this.generateGroceryList()}>Generate Grocery List</Button>
+                    <Button style = {classes.buttons} onClick ={()=>this.clearBasketAndSchedule()}>Clear Basket And Schedule</Button>
+                </div>
+                <div>
+                    <Button style = {classes.buttons} onClick = {() => this.generateGroceryList()}>Generate Grocery List</Button>
                 </div>
                 {this.state.groceryList.length != 0 ?
                 <div>
                     <Grid container >
-                        <Box border = {1}>
+                        <Box style = {classes.groceryList} border = {1}>
                             <List>
-                                <ListItem>
+                                <ListItem style = {classes.headers}>
                                     <div>Ingredient</div>
                                 </ListItem>
                                 <Divider/>
@@ -2249,9 +2907,9 @@ export default class Scheduler extends React.Component
                                 }
                             </List>
                         </Box>
-                        <Box border = {1}>
+                        <Box style = {classes.groceryList} border = {1}>
                             <List>
-                                <ListItem>
+                                <ListItem style = {classes.headers}>
                                     <div>Amount</div>
                                 </ListItem>
                                 <Divider/>
@@ -2273,7 +2931,7 @@ export default class Scheduler extends React.Component
                         </Box>
                         <Box border = {1}>
                             <List>
-                                <ListItem>
+                                <ListItem style = {classes.headers}>
                                     <div>Unit</div>
                                 </ListItem>
                                 <Divider/>

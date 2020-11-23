@@ -23,11 +23,10 @@ export default class SignUp extends React.Component
         {
             username: "",
             password: "",
-            wrong: false
+            wrong: false,
         }
         
     }
-
     async validate()
     {
         //console.log(this.state.username);
@@ -48,6 +47,8 @@ export default class SignUp extends React.Component
         // set state
         if (dh) {
             this.setState({wrong: false});
+            this.props.updateUsername(this.state.username);
+            this.props.updateCurrentComponent("profile");
         }
         else {
             this.setState({wrong: true});
@@ -60,6 +61,7 @@ export default class SignUp extends React.Component
     handleUsernameChange = event =>{
         this.setState({ username: event.target.value });
     }
+
     handlePasswordChange = event =>{
         this.setState({ password: event.target.value });
     }
@@ -75,8 +77,8 @@ export default class SignUp extends React.Component
             <div>
                 <Container component="main" maxWidth="xs">
                     <div>
-                        <Avatar></Avatar>
-                        <Typography component="h1" variant="h5">
+                        <Grid container justify="center"><Avatar style = {{justifyContent: "center"}}></Avatar></Grid>
+                        <Typography style = {{width: "100%", textAlign: "center"}} component="h1" variant="h5">
                             Sign Up
                         </Typography>
                         <TextField
@@ -111,7 +113,7 @@ export default class SignUp extends React.Component
                             onClick = {this.validate.bind(this)}>
                             Sign Up
                         </Button>
-                        <h5>Returning User?</h5>
+                        <h5 style = {{textAlign: "center"}}>Returning User?</h5>
                         <Button
                             fullWidth
                             variant = "contained"

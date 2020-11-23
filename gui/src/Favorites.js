@@ -21,7 +21,13 @@ import Image from 'material-ui-image';
 import Paper from '@material-ui/core/Paper';
 import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
+import Snackbar from '@material-ui/core/Snackbar';
+import IconButton from '@material-ui/core/IconButton';
+import CloseIcon from '@material-ui/icons/Close';
+import FavoriteOutlinedIcon from '@material-ui/icons/FavoriteOutlined';
 
+
+import DatabaseHandler from './DatabaseHandler.js';
 
 export default class Favorites extends React.Component
 {
@@ -32,6 +38,8 @@ export default class Favorites extends React.Component
             favorites: [],
             basket: [],
             recipes: [],
+            action: "",
+            actionOccured: false,
         }
         var stringRequest = 'https://api.spoonacular.com/recipes/informationBulk?ids=';
         let idlist = this.state.favorites;
@@ -46,16 +54,46 @@ export default class Favorites extends React.Component
                 stringRequest = stringRequest.concat(idlist[i]);
             }
         }
+        var stringAPIkey1 = "805e5c6f2aa0430f9339f0c977fe6a5e";
+        var stringAPIkey2 = "776009e261104b10864e8a11347a4478";
+        var stringAPIkey3 = "2e0b58c2c8eb4f10be5f5c02491158cb";
+        var currentAPIkey = stringAPIkey2;
         stringRequest = stringRequest.concat("&includeNutrition=true")
-        stringRequest = stringRequest.concat("&apiKey=2e0b58c2c8eb4f10be5f5c02491158cb");
+        stringRequest = stringRequest.concat("&apiKey=" + currentAPIkey);
 
     }
     
-    componentDidMount()
+    async componentDidMount()
     {
-        //https://api.spoonacular.com/recipes/informationBulk?ids=715538,716429&includeNutrition=true&apiKey=2e0b58c2c8eb4f10be5f5c02491158cb use to get recipes in favorites page and in scheduler
+        await this.retreiveData();
+        var stringRequest = 'https://api.spoonacular.com/recipes/informationBulk?ids=';
+        let idlist = this.state.favorites;
+        for(var i=0; i<idlist.length; i++)
+        {
+            
+            if(idlist[i]!=="[object Object]")
+            {
+                console.log(idlist[i]);
+                if(i!=idlist.length-1)
+                {
+                    stringRequest = stringRequest.concat(idlist[i],",");
+                }
+                else
+                {
+                    stringRequest = stringRequest.concat(idlist[i]);
+                }
+            }
+        }
+        
+        var stringAPIkey1 = "805e5c6f2aa0430f9339f0c977fe6a5e";
+        var stringAPIkey2 = "776009e261104b10864e8a11347a4478";
+        var stringAPIkey3 = "2e0b58c2c8eb4f10be5f5c02491158cb";
+        var currentAPIkey = stringAPIkey3;
+        stringRequest = stringRequest.concat("&includeNutrition=true")
+        stringRequest = stringRequest.concat("&apiKey=" + currentAPIkey);
+        console.log(stringRequest);
         var request = new XMLHttpRequest();
-        request.open('GET', 'https://api.spoonacular.com/recipes/informationBulk?ids=654959,654812,654857,654883,654926&includeNutrition=true&apiKey=cfa46d82b3e84e2995601c31d209ae9c', true);
+        request.open('GET', stringRequest, true);
         request.send();
         request.onload = () =>  
         {
@@ -70,7 +108,7 @@ export default class Favorites extends React.Component
                     var result = data[i]; 
                     console.log(result);
                     var recipe = new Object();
-                    recipe.id = result.id;
+                    recipe.id = result.id.toString();
                     recipe.name = result.title;
                     recipe.time = result.readyInMinutes;
                     var nutrients = result.nutrition["nutrients"];
@@ -109,7 +147,7 @@ export default class Favorites extends React.Component
                         instructions.push("No instructions available");
                         recipe.instructions = instructions;
                     }
-                    recipe.picture = result.image;
+                    recipe.image = result.image;
                     recipe.favorited = this.isFavorited(recipe);
                     recipe.inBasket = this.isInBasket(recipe);
                     var copy = this.state.recipes;
@@ -129,7 +167,7 @@ export default class Favorites extends React.Component
         for(var i =0; i< this.state.basket.length; i++)
         {
             var current = this.state.basket[i];
-            if(recipe.id === current)
+            if(recipe.id.toString() === current)
             {
                 return true;
             }
@@ -146,7 +184,7 @@ export default class Favorites extends React.Component
         for(var i =0; i< this.state.favorites.length; i++)
         {
             var current = this.state.favorites[i];
-            if(recipe.id === current)
+            if(recipe.id.toString() === current)
             {
                 return true;
             }
@@ -163,7 +201,7 @@ export default class Favorites extends React.Component
         for(var i =0; i< this.state.favorites.length; i++)
         {
             var current = this.state.favorites[i];
-            if(recipe.id === current)
+            if(recipe.id.toString() === current)
             {
                 return i;
             }
@@ -181,7 +219,24 @@ export default class Favorites extends React.Component
         for(var i =0; i< this.state.basket.length; i++)
         {
             var current = this.state.basket[i];
-            if(recipe.id === current)
+            if(recipe.id.toString() === current)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    findIndexinRecipes(id)
+    {
+        if(this.state.recipes===[])
+        {
+            return -1;
+        }
+        for(var i =0; i< this.state.recipes.length; i++)
+        {
+            var current = this.state.recipes[i].id;
+            if(id === current.toString())
             {
                 return i;
             }
@@ -199,16 +254,22 @@ export default class Favorites extends React.Component
             copy.splice(favIndex,1);
             var recipesCopy = this.state.recipes;
             recipesCopy[index].favorited = false;
-            this.setState({favorites: copy, recipes: recipesCopy}, () => console.log(this.state));
+            var actionString = "Removed ";
+            actionString = actionString.concat(recipe.name);
+            actionString = actionString.concat(" from Favorites");
+            this.setState({favorites: copy, recipes: recipesCopy, actionOccured: true, action: actionString}, () => console.log(this.state));
         }
         else
         {
             recipe.favorited = true;
             var copy = this.state.favorites;
-            copy.push(recipe.id);
+            copy.push(recipe.id.toString());
             var recipesCopy = this.state.recipes;
             recipesCopy[index].favorited = true;
-            this.setState({favorites: copy, recipes: recipesCopy}, () => console.log(this.state));
+            var actionString = "Added ";
+            actionString = actionString.concat(recipe.name);
+            actionString = actionString.concat(" to Favorites");
+            this.setState({favorites: copy, recipes: recipesCopy, actionOccured: true, action: actionString}, () => console.log(this.state));
         }
     }
 
@@ -233,114 +294,277 @@ export default class Favorites extends React.Component
             copy.splice(basketIndex,1);
             var recipesCopy = this.state.recipes;
             recipesCopy[index].inBasket = false;
-            this.setState({basket: copy, recipes: recipesCopy}, () => console.log(this.state));
+            var actionString = "Removed ";
+            actionString = actionString.concat(recipe.name);
+            actionString = actionString.concat(" from Basket");
+            this.setState({basket: copy, recipes: recipesCopy, actionOccured: true, action: actionString}, () => console.log(this.state));
         }
         else
         {
             recipe.inBasket = true;
             var copy = this.state.basket;
-            copy.push(recipe.id);
+            copy.push(recipe.id.toString());
             var recipesCopy = this.state.recipes;
             recipesCopy[index].inBasket = true;
-            this.setState({basket: copy, recipes: recipesCopy}, () => console.log(this.state));
+            var actionString = "Added ";
+            actionString = actionString.concat(recipe.name);
+            actionString = actionString.concat(" to Basket");
+            this.setState({basket: copy, recipes: recipesCopy, actionOccured: true, action: actionString}, () => console.log(this.state));
         }
 
     }
 
-    retreiveData()
+    updateRecipies()
     {
-        //get the array of favorite ids, and the array of basket ids
-        // store them in the state with the call this.setState({basket: serverbasket, favorites: serverfavorites}, ()=>console.log(this.state)) 
-        //the console.log will show you the current state in inspect. use that to ensure the data is being loaded correctly.
-        //this will be called at the beginning of componentDidMount in final version but can be called using the corresponding button
+        var recipeCopy = this.state.recipes;
+        for(var i = 0; i < this.state.basket.length; i++)
+        {
+            var index = this.findIndexinRecipes(this.state.basket[i]);
+            if (index != -1) {
+                recipeCopy[index].inBasket = true;
+            }
+        }
+        for(var i = 0; i < this.state.favorites.length; i++)
+        {
+            var index = this.findIndexinRecipes(this.state.favorites[i]);
+            if (index != -1) {
+                recipeCopy[index].favorited = true;
+            }
+        }
+        this.setState({recipes: recipeCopy}, () => console.log(this.state));
     }
 
-    storeData()
+    async retreiveData()
+    {
+        //get the array of favorite ids, and the array of basket ids
+        // store them in the state with the call this.setState({basket: serverbasket, favorites: serverfavorites}, ()=>console.log(this.state))
+        //the console.log will show you the current state in inspect. use that to ensure the data is being loaded correctly.
+        //this will be called at the beginning of componentDidMount in final version but can be called using the corresponding button
+        // get recipies string
+        let dh = "null";
+        dh = await new DatabaseHandler("getRecipes", this.props.username);
+        var basket_recipes_string = "";
+        var favorites_recipes_string = "";
+        var basket_recipes_array = [];
+        var favorites_recipes_array = [];
+
+        if (dh != "null")
+        {
+            if (dh != null && dh.length != 0 && dh != "null")
+            {
+                basket_recipes_string = dh.split('*')[0];
+                favorites_recipes_string = dh.split('*')[1];
+                console.log(basket_recipes_string);
+                console.log(favorites_recipes_string);
+            }
+
+            if (basket_recipes_string.length != 0)
+            {
+                basket_recipes_array = basket_recipes_string.split(',');
+            }
+            if (dh.split('*').length > 1 && favorites_recipes_string.length != 0)
+            {
+                favorites_recipes_array = favorites_recipes_string.split(',');
+            }
+        }
+        
+        if (basket_recipes_array.length != 0)
+        {
+            this.setState({basket: basket_recipes_array});
+        }
+        if (favorites_recipes_array.length != 0)
+        {
+            this.setState({favorites: favorites_recipes_array}, ()=>console.log(this.state));
+        }
+        console.log(this.state);
+    }
+
+    
+    async storeData()
     {
         //store the state into the server; store the array of favorite ids and the array of basket ids
         // to get the array call this.state.favorites or this.state.basket
         //the array should show up using pgadmin or whatever you use to see the database
         //this will be called when clicking on the nav bar in the final version but can be called using the corresponding button
         //before storing the new basket and favorites, delete the old basket and favorites data corresponding to the username
+        
+        // make the recipe_id_string
+        // "id,id,id,id,id,id,id,id*id,id,id,id,id,id,id"
+        // ......basket_ids........^.....favorite_ids....
+
+        // if empty string will be = "*"
+        
+        var recipe_id_string = "";
+        var i;
+        for (i = 0; i < this.state.basket.length; i++) {
+            recipe_id_string = recipe_id_string + this.state.basket[i] + ",";
+        }
+        recipe_id_string = recipe_id_string.slice(0, -1);
+        recipe_id_string = recipe_id_string + "*"
+        i = 0;
+        for (i = 0; i < this.state.favorites.length; i++) {
+            recipe_id_string = recipe_id_string + this.state.favorites[i] + ",";
+        }
+        if (recipe_id_string.charAt(recipe_id_string.length - 1) == ",")
+        {
+            recipe_id_string = recipe_id_string.slice(0, -1);
+        }
+        console.log("recipe_id_string = " + recipe_id_string);
+
+        let dh = false;
+        dh = await new DatabaseHandler("saveRecipes", this.props.username, "null", "null", "null", recipe_id_string, "null");
+
     }
 
     goToPage(page)
     {
         //save state to server here
+        this.storeData();
         this.props.updateCurrentComponent(page);
     }
 
+    closeAlert()
+    {
+        this.setState({actionOccured: false}, ()=>console.log(this.state));
+    }
+
+
+    useStyles = {
+        bar: {
+            backgroundColor: "#0f0997"
+        },
+        buttons: {
+            
+            backgroundColor: "#0f0997",
+            color: "#fcfcff",
+            width: "140px",
+            borderRadius: 5
+            
+        },
+        gridContainer: {
+            width: "100%"
+        },
+        grid:{
+            width: "30%"
+        },
+        picture: {
+            "borderRadius": "5px"
+        },
+        summary: {
+            backgroundColor: "#d6dafc",
+            width: "100%",
+            border: "1px"
+        },
+        favorited: {
+            color: "#d2345f",
+            colorSecondary: "#d2345f",
+            float: "right",
+            borderWidth: "thin",
+            FormatAlignJustify: "flex-end"
+        },
+        notFavorited: {
+            color: "#74828b",
+            borderWidth: "thin",
+            float: "right",
+        },
+        accordion: {
+            marginBottom: "5px"
+        },
+        calTitle: {
+            fontWeight: "bold",
+        },
+    };
+
     render()
     {
+        var classes = this.useStyles;
         return(
             <div>
-                <AppBar position="static">
+                <AppBar position="static" style = {classes.bar}>
                     <Toolbar>
                     <Button color = "inherit" onClick = {()=>this.goToPage("home")}>Home</Button>
                     <Button color = "inherit" onClick = {()=>this.goToPage("profile")}>Profile</Button>
-                    <Typography variant="h6">
+                    <Typography style = {{marginLeft: "5px", marginRight: "7px"}} variant="h6">
                         Favorites
                     </Typography>
                     <Button color = "inherit" onClick = {()=>this.goToPage("scheduler")}>Scheduler</Button>
+                    <Grid style = {{width: "90%"}} container justify="flex-end"><Button color = "inherit" onClick = {()=>this.goToPage("signin")}>Sign Out</Button></Grid>
                     </Toolbar>
                 </AppBar>
                 <Container>
+                <Snackbar 
+                open={this.state.actionOccured} 
+                message = {this.state.action}
+                action={
+                    <React.Fragment>
+                      <IconButton size="small" aria-label="close" color="inherit" onClick={()=>this.closeAlert()}>
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </React.Fragment>}>
+                </Snackbar>
                 <List>
                     {this.state.recipes.map((recipe,index) => {
                         return (
                         <div
                         key = {index}>
-                            <Accordion>
+                            <Accordion style = {classes.accordion}>
                                 <AccordionSummary
-                                expandIcon = {<ExpandMoreIcon/>}>
-                                    <div>
+                                style = {classes.summary}
+                                expandIcon = {<div><ExpandMoreIcon/></div>}>
+                                    <div style = {{width: "1200px"}}>
                                         {recipe.name}
+                                        <FavoriteOutlinedIcon
+                                    style = {this.state.recipes[index].favorited ? classes.favorited: classes.notFavorited}
+                                    onClick = {() => this.favoriteRecipe(recipe, index)}></FavoriteOutlinedIcon>
                                     </div>
-                                    <FavoriteIcon
-                                    color = {this.state.recipes[index].favorited ? "primary": "action"}
-                                    onClick = {() => this.favoriteRecipe(recipe, index)}></FavoriteIcon>
                                 </AccordionSummary>
                                 <AccordionDetails>
                                     <div>
-                                        Calories: {recipe.calories} {recipe.calUnit}
-                                    </div>
-                                    <Grid container spacing = {2}>
-                                        <Grid item xs = {4}>
-                                            <List>
-                                                {recipe.ingredients.map((ingredient,ind) => {
-                                                    return (
-                                                        <div
-                                                        key = {ind}>
-                                                            • {ingredient.name} {ingredient.amount} {ingredient.unit}
-                                                        </div>
-                                                    );
-                                                    })
-                                                }
-
-                                            </List>
-
-                                        </Grid>
-                                        <Grid item xs = {4}>
-                                        <List>
-                                                {recipe.instructions.map((step,ind) => {
-                                                    return (
-                                                        <div
-                                                        key = {ind}>
-                                                            {ind+1}. {step}
-                                                        </div>
-                                                    );
-                                                    })
-                                                }
-                                            </List>
-                                        </Grid>
-                                        <Grid item xs = {4}>
-                                            <Image cache ={false} src={recipe.image} />
-                                        </Grid>
-                                    </Grid>
                                     <div>
-                                            <Button onClick = {() => this.addRemoveBasketItem(recipe,index)}>
-                                                {this.state.recipes[index].inBasket ? "Remove From Basket": "Add To Basket"}
-                                            </Button>
+                                        <span style = {classes.calTitle}>Calories:</span> {recipe.calories} {recipe.calUnit}
+                                    </div>
+                                    <div>
+                                        <Grid style = {classes.gridContainer} container spacing = {2}>
+                                            <Grid style = {classes.grid} item xs = {4}>
+                                                <List>
+                                                    <p>Ingredients</p>
+                                                    {recipe.ingredients.map((ingredient,ind) => {
+                                                        return (
+                                                            <div
+                                                            key = {ind}>
+                                                                • {ingredient.name} {ingredient.amount} {ingredient.unit}
+                                                            </div>
+                                                        );
+                                                        })
+                                                    }
+
+                                                </List>
+
+                                            </Grid>
+                                            <Grid item xs = {4}>
+                                            <List>
+                                                <p>Instructions</p>
+                                                    {recipe.instructions.map((step,ind) => {
+                                                        return (
+                                                            <div
+                                                            key = {ind}>
+                                                                {ind+1}. {step}
+                                                            </div>
+                                                        );
+                                                        })
+                                                    }
+                                                </List>
+                                            </Grid>
+                                            <Grid item xs = {4}>
+                                                <Image style = {classes.picture} src={recipe.image} />
+                                            </Grid>
+                                        </Grid>
+                                    </div>
+                                    <div>
+                                        <Button style ={classes.buttons} onClick = {() => this.addRemoveBasketItem(recipe,index)}>
+                                            {this.state.recipes[index].inBasket ? "Remove From Basket": "Add To Basket"}
+                                        </Button>
+                                    </div>
                                     </div>
                                 </AccordionDetails>
                             </Accordion>

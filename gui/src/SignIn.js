@@ -12,6 +12,7 @@ import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import Container from '@material-ui/core/Container';
 
+
 import DatabaseHandler from './DatabaseHandler.js';
 
 export default class SignIn extends React.Component
@@ -40,9 +41,8 @@ export default class SignIn extends React.Component
 
         if (dh) {
             this.setState({wrong: false});
-            // go to profile
             this.props.updateUsername(this.state.username);
-            this.props.updateCurrentComponent("profile");
+            this.props.updateCurrentComponent("home");
         }
         else {
             this.setState({wrong: true});
@@ -70,8 +70,8 @@ export default class SignIn extends React.Component
             <div>
                 <Container component="main" maxWidth="xs">
                     <div>
-                        <Avatar></Avatar>
-                        <Typography component="h1" variant="h5">
+                        <Grid container justify="center"><Avatar style = {{justifyContent: "center"}}></Avatar></Grid>
+                        <Typography style = {{width: "100%", textAlign: "center"}} component="h1" variant="h5">
                             Sign In
                         </Typography>
                         <TextField
@@ -107,7 +107,7 @@ export default class SignIn extends React.Component
                             onClick = {this.validate.bind(this)}>
                             Sign In
                         </Button>
-                        <h5>First Time User?</h5>
+                        <h5 style = {{textAlign: "center"}}>First Time User?</h5>
                         <Button
                             fullWidth
                             variant = "contained"

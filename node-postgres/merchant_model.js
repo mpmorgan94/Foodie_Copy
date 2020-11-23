@@ -91,92 +91,6 @@ const createUser = (body) => {
   })
 }
 
-const deleteMerchant = () => {
-  return new Promise(function(resolve, reject) {
-    const id = parseInt(request.params.id)
-    pool.query('DELETE FROM users WHERE username = $1', [id], (error, results) => {
-      if (error) {
-        reject(error)
-      }
-      //resolve(true)
-      //resolve(`Merchant deleted with ID: ${id}`)
-    })
-  })
-}
-
-const recipeExist = (body) => {
-  return new Promise(function(resolve, reject) {
-    const {username, recipe_id} = body
-    pool.query('SELECT username FROM recipes WHERE username = $1 AND recipe_id = $2', [username, recipe_id], (error, results) => {
-      if (error) {
-        reject(error)
-      }
-      if (results.rows[0] == null){
-				resolve(false)
-			}
-			else if (results.rows[0].username.trim() === users) {
-				resolve(true)
-			}
-      else {
-        resolve(false)
-      }
-    })
-  })
-}
-
-const createRecipe = (body) => {
-  return new Promise(function(resolve, reject) {
-    const { username, recipe_id } = body
-    console.log("Creating new recipe...")
-    pool.query('SELECT username FROM recipes WHERE users = $1 AND recipe_id = $2', [username, recipe_id], (error, results) => {
-      if (error){
-        reject(error)
-      }
-      if (results.rows[0] == null){
-        pool.query('INSERT INTO recipes (username, recipe_id) VALUES ($1, $2) RETURNING *', [username, recipe_id], (error, results) => {
-            if (error) {
-              reject(error)
-            }
-        })
-      }
-
-      else if ((results.rows[0].usernamme.trim() === username) && (results.rows[0].recipe_id.trim() === recipe_id)) {
-        console.log("This recipe already exists!")
-      }
-      else {
-        pool.query('INSERT INTO recipes (username, recipe_id) VALUES ($1, $2) RETURNING *', [username, recipe_id], (error, results) => {
-          if (error) {
-            reject(error)
-          }
-        })
-      }
-    })
-  })
-}
-
-const deleteRecipe = (body) => {
-  return new Promise(function(resolve, reject) {
-    const {username, recipe_id} = body
-    pool.query('SELECT username FROM recipes WHERE username = $1 AND recipe_id = $2', [username, recipe_id], (error, results) => {
-      if (error) {
-        reject(error)
-      }
-      if (results.rows[0] == null){
-        console.log("This recipe already does not exist. Can not delete.")
-      }
-      else {
-        pool.query('DELETE FROM recipes WHERE username = $1 and recipe_id = $2', [username, recipe_id], (error, results) => {
-          if (error) {
-            reject(error)
-          }
-        })
-      }
-
-    })
-
-  })
-}
-
 //Assuming user always exist
 const saveDiet = (body) => {
   return new Promise(function(resolve, reject) {
@@ -279,7 +193,6 @@ const saveSchedule = (body) => {
 
     const { username, schedule_string } = body
 
-    //Assuming user always exist
     pool.query('UPDATE users SET schedule = $1 WHERE username = $2', [schedule_string, username], (error, results) => {
       if (error) {
         console.log(error)
@@ -313,19 +226,183 @@ const getSchedule = (body) => {
   })
 }
 
+// Assuming user always exist
+const saveRecipes = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username, recipe_id_string } = body
+
+    pool.query('UPDATE users SET recipes = $1 WHERE username = $2', [recipe_id_string, username], (error, results) => {
+      if (error) {
+        console.log(error)
+        reject(error)
+      }
+      console.log("recipes saved.")
+      resolve(true)
+    })
+  })
+}
+
+const getRecipes = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username } = body
+    pool.query('SELECT recipes FROM users WHERE username = $1', [username], (error, results) => {
+      if (error) {
+        reject(error)
+      }
+      if (results.rows.length == 0) {
+        resolve("null")
+      }
+      else if (results.rows[0].recipes != null) {
+        resolve(results.rows[0].recipes.trim());
+      }
+      else {
+        resolve("null")
+      }
+
+    })
+  })
+}
+
+const saveBMI = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username, weight, feet, inches, age, sex } = body
+    console.log("saving bmi...")
+    console.log("This is the username" + username)
+
+     pool.query('UPDATE users SET weight = $1 , feet = $2 , inches = $3 , age = $4 , sex = $5 WHERE username = $6', [weight, feet, inches, age, sex, username], (error, results) => {
+      if (error) {
+        console.log(error)
+        reject(error)
+      }
+      console.log("bmi saved.")
+      resolve(true)
+    })
+
+  })
+}
+
+const getWeight = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username } = body
+    pool.query('SELECT weight FROM users WHERE username = $1', [username], (error, results) => {
+      if (error) {
+        reject(error)
+      }
+      if (results.rows.length == 0) {
+        resolve("null")
+      }
+      else if (results.rows[0].weight != null) {
+        resolve(results.rows[0].weight.trim());
+      }
+      else {
+        resolve("null")
+      }
+
+    })
+  })
+}
+
+const getFeet = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username } = body
+    pool.query('SELECT feet FROM users WHERE username = $1', [username], (error, results) => {
+      if (error) {
+        reject(error)
+      }
+      if (results.rows.length == 0) {
+        resolve("null")
+      }
+      else if (results.rows[0].feet != null) {
+        resolve(results.rows[0].feet.trim());
+      }
+      else {
+        resolve("null")
+      }
+
+    })
+  })
+}
+
+const getInches = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username } = body
+    pool.query('SELECT inches FROM users WHERE username = $1', [username], (error, results) => {
+      if (error) {
+        reject(error)
+      }
+      if (results.rows.length == 0) {
+        resolve("null")
+      }
+      else if (results.rows[0].inches != null) {
+        resolve(results.rows[0].inches.trim());
+      }
+      else {
+        resolve("null")
+      }
+
+    })
+  })
+}
+
+const getAge = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username } = body
+    pool.query('SELECT age FROM users WHERE username = $1', [username], (error, results) => {
+      if (error) {
+        reject(error)
+      }
+      if (results.rows.length == 0) {
+        resolve("null")
+      }
+      else if (results.rows[0].age != null) {
+        resolve(results.rows[0].age.trim());
+      }
+      else {
+        resolve("null")
+      }
+
+    })
+  })
+}
+
+const getSex = (body) => {
+  return new Promise(function(resolve, reject) {
+    const { username } = body
+    pool.query('SELECT sex FROM users WHERE username = $1', [username], (error, results) => {
+      if (error) {
+        reject(error)
+      }
+      if (results.rows.length == 0) {
+        resolve("null")
+      }
+      else if (results.rows[0].sex != null) {
+        resolve(results.rows[0].sex.trim());
+      }
+      else {
+        resolve("null")
+      }
+
+    })
+  })
+}
+
 module.exports = {
   getUsers,
   userExist,
   verifyCreds,
   createUser,
-  deleteMerchant,
-  recipeExist,
-  createRecipe,
-  deleteRecipe,
   saveDiet,
   getUserDiet,
   saveAllergies,
   getAllergies,
   saveSchedule,
-  getSchedule
+  getSchedule,
+  saveRecipes,
+  getRecipes,
+  saveBMI,
+  getWeight,
+  getFeet,
+  getInches,
+  getAge,
+  getSex,
 }

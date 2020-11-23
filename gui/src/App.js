@@ -8,7 +8,7 @@ import Scheduler from './Scheduler';
 import Favorites from './Favorites';
 
 function App() {
-  let [currentComponent, updateCurrentComponent] = useState("signup");
+  let [currentComponent, updateCurrentComponent] = useState("signin");
   let [username, updateUsername] = useState("");
   Comp = () => {
     if(currentComponent === "signup")
@@ -51,7 +51,6 @@ function App() {
       return <Favorites 
             updateCurrentComponent = {updateCurrentComponent}
             username = {username}>
-
             </Favorites>
     }
   };
