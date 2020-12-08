@@ -34,6 +34,7 @@ export default class Scheduler extends React.Component
         super(props)
         this.state = {
             basket: [],
+            favorites: [],
             monday: {
                 breakfast: "Breakfast",
                 snack: "Snack",
@@ -1700,6 +1701,8 @@ export default class Scheduler extends React.Component
     async storeBasketIDs()
     {
 
+        //////
+        /*
         //Populate basket
         // get recipies string
         let dh = "null";
@@ -1714,10 +1717,6 @@ export default class Scheduler extends React.Component
                 basket_recipes_string = dh.split('*')[0];
             }
 
-            // debugging
-            //console.log("dh returned:" + dh);
-            //console.log("basket_recipes_string=" + basket_recipes_string);
-
             if (dh.split('*').length > 1 && basket_recipes_string.length != 0)
             {
                 basket_recipes_array = basket_recipes_string.split(',');
@@ -1725,14 +1724,55 @@ export default class Scheduler extends React.Component
         }
         if (dh.split('*').length > 1 && basket_recipes_array.length != 0)
         {
-            //this.fixScheduleToBasket(basket_recipes_array);
             return basket_recipes_array;
         }
         else
         {
-            //this.fixScheduleToBasket([]);
             return [];
         }
+        */
+
+
+        //NEW METHOD
+        let dh = "null";
+        dh = await new DatabaseHandler("getRecipes", this.props.username);
+        var basket_recipes_string = "";
+        var favorites_recipes_string = "";
+        var basket_recipes_array = [];
+        var favorites_recipes_array = [];
+
+        if (dh != "null")
+        {
+            if (dh != null && dh.length != 0 && dh != "null")
+            {
+                basket_recipes_string = dh.split('*')[0];
+                favorites_recipes_string = dh.split('*')[1];
+                console.log(basket_recipes_string);
+                console.log(favorites_recipes_string);
+            }
+
+            if (basket_recipes_string.length != 0)
+            {
+                basket_recipes_array = basket_recipes_string.split(',');
+            }
+            if (dh.split('*').length > 1 && favorites_recipes_string.length != 0)
+            {
+                favorites_recipes_array = favorites_recipes_string.split(',');
+            }
+        }
+        
+        if (basket_recipes_array.length != 0)
+        {
+            //this.setState({basket: basket_recipes_array});
+        }
+        if (favorites_recipes_array.length != 0)
+        {
+            this.setState({favorites: favorites_recipes_array}, ()=>console.log(this.state));
+        }
+        console.log(this.state);
+
+        return basket_recipes_array;
+
     }
 
     async retreiveData()
@@ -1851,8 +1891,8 @@ export default class Scheduler extends React.Component
         // if empty string will be = "*"
         var recipe_id_string = "*";
         var i;
-        for (i = 0; i < this.state.basket.length; i++) {
-            recipe_id_string = recipe_id_string + this.state.basket[i] + ",";
+        for (i = 0; i < this.state.favorites.length; i++) {
+            recipe_id_string = recipe_id_string + this.state.favorites[i] + ",";
         }
         if (recipe_id_string.charAt(recipe_id_string.length - 1) == ",")
         {

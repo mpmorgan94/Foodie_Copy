@@ -37,7 +37,7 @@ export default class SignUp extends React.Component
 
         console.log(await new DatabaseHandler("userExist", this.state.username, "null"));
         if (await new DatabaseHandler("userExist", this.state.username, "null") === false) {
-            dh = await new DatabaseHandler("createUser", this.state.username, this.state.password);
+            dh = new DatabaseHandler("createUser", this.state.username, this.state.password);
             console.log("createUser called. Function returned: " + dh);
         }
         else {
@@ -53,8 +53,6 @@ export default class SignUp extends React.Component
         else {
             this.setState({wrong: true});
         }
-
-        // go somewhere???
 
     }
 

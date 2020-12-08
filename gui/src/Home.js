@@ -89,7 +89,7 @@ export default class Home extends React.Component
         var stringAPIkey2 = "776009e261104b10864e8a11347a4478";
         var stringAPIkey3 = "2e0b58c2c8eb4f10be5f5c02491158cb";
         var currentAPIkey = stringAPIkey1;
-        stringRequest = stringRequest.concat("addRecipeNutrition=true&number=100&apiKey=" + currentAPIkey);
+        stringRequest = stringRequest.concat("addRecipeNutrition=true&number=35&apiKey=" + currentAPIkey);
         console.log(stringRequest);
 
         var request = new XMLHttpRequest();
